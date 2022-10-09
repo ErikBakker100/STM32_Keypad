@@ -74,6 +74,7 @@ void Error_Handler(void);
 #define COL4_GPIO_Port GPIOC
 #define ROW5_Pin GPIO_PIN_0
 #define ROW5_GPIO_Port GPIOB
+#define ROW5_EXTI_IRQn EXTI0_1_IRQn
 #define ROW4_Pin GPIO_PIN_14
 #define ROW4_GPIO_Port GPIOB
 #define ROW4_EXTI_IRQn EXTI4_15_IRQn
