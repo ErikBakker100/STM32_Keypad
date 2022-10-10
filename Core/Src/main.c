@@ -42,7 +42,7 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
+bool Key_Pressed = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -50,7 +50,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin);
+void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -96,6 +96,12 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if (Key_Pressed ==true) {
+		  Key_Pressed = false;
+		  char button[3] = "";
+		  KeyPad_Get(button);
+		  printf("Key: %s\n", button);
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -207,10 +213,13 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LED_GREEN_Pin|COL3_Pin|COL2_Pin|COL1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(COL4_GPIO_Port, COL4_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, COL3_Pin|COL2_Pin|COL1_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(COL4_GPIO_Port, COL4_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -218,17 +227,24 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LED_GREEN_Pin COL3_Pin COL2_Pin COL1_Pin */
-  GPIO_InitStruct.Pin = LED_GREEN_Pin|COL3_Pin|COL2_Pin|COL1_Pin;
+  /*Configure GPIO pin : LED_GREEN_Pin */
+  GPIO_InitStruct.Pin = LED_GREEN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LED_GREEN_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : COL3_Pin COL2_Pin COL1_Pin */
+  GPIO_InitStruct.Pin = COL3_Pin|COL2_Pin|COL1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : COL4_Pin */
   GPIO_InitStruct.Pin = COL4_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(COL4_GPIO_Port, &GPIO_InitStruct);
 
@@ -236,8 +252,8 @@ static void MX_GPIO_Init(void)
                            ROW2_Pin */
   GPIO_InitStruct.Pin = ROW5_Pin|ROW4_Pin|ROW1_Pin|ROW3_Pin
                           |ROW2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
@@ -253,9 +269,9 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
+void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
 {
-    printf("Interrupt: %d\n", GPIO_Pin);
+    Key_Pressed = true;
 }
 /* USER CODE END 4 */
 

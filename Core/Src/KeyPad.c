@@ -1,135 +1,154 @@
 #include "KeyPad.h"
 #include "KeyPadConfig.h"
-#if (_KEYPAD_USE_FREERTOS==1)
-#include "cmsis_os.h"
-#define _KEYPAD_DELAY(x)      osDelay(x)
-#else
 #define _KEYPAD_DELAY(x)      HAL_Delay(x)
-#endif
 
 KeyPad_t	KeyPad;
 
+void Keypad_Init_Column(GPIO_PinState);
+void Keypad_Init_Row_Input(void);
+void Keypad_Init_Row_Interrupt(void);
 //#############################################################################################
 void	KeyPad_Init(void)
 {
-  GPIO_InitTypeDef	gpio;
-  KeyPad.ColumnSize = sizeof(_KEYPAD_COLUMN_GPIO_PIN) / 2;
-  KeyPad.RowSize = sizeof(_KEYPAD_ROW_GPIO_PIN) / 2;
-  for(uint8_t	i=0 ; i<KeyPad.ColumnSize ; i++)
-  {
-    gpio.Mode = GPIO_MODE_OUTPUT_PP;
-    gpio.Pull = GPIO_NOPULL;
+  KeyPad.ColumnSize = sizeof(_KEYPAD_COLUMN_GPIO_PIN)/2;
+  KeyPad.RowSize = sizeof(_KEYPAD_ROW_GPIO_PIN)/2;
+  Keypad_Init_Column(GPIO_PIN_SET);
+  Keypad_Init_Row_Interrupt();
+}
+
+void Keypad_Init_Column(GPIO_PinState state) {
+	GPIO_InitTypeDef	gpio = {0};
+	gpio.Mode = GPIO_MODE_OUTPUT_PP;
+	gpio.Pull = GPIO_NOPULL;
+	gpio.Speed = GPIO_SPEED_FREQ_LOW;
+	for(uint8_t	i=0 ; i<KeyPad.ColumnSize ; i++) {
+		gpio.Pin = _KEYPAD_COLUMN_GPIO_PIN[i];
+		HAL_GPIO_Init((GPIO_TypeDef*)_KEYPAD_COLUMN_GPIO_PORT[i], &gpio);
+		HAL_GPIO_WritePin((GPIO_TypeDef*)_KEYPAD_COLUMN_GPIO_PORT[i], _KEYPAD_COLUMN_GPIO_PIN[i], state);
+	}
+}
+
+void Keypad_Init_Row_Input(void) {
+	GPIO_InitTypeDef	gpio = {0};
+	gpio.Mode = GPIO_MODE_INPUT;
+	gpio.Pull = GPIO_PULLDOWN;
+	gpio.Speed = GPIO_SPEED_FREQ_LOW;
+	for(uint8_t	i=0 ; i<KeyPad.RowSize ; i++)
+	{
+		gpio.Pin = _KEYPAD_ROW_GPIO_PIN[i];
+		HAL_GPIO_Init((GPIO_TypeDef*)_KEYPAD_ROW_GPIO_PORT[i], &gpio);
+	}
+}
+
+void Keypad_Init_Row_Interrupt(void) {
+	GPIO_InitTypeDef	gpio = {0};
+    gpio.Mode = GPIO_MODE_IT_RISING;
+    gpio.Pull = GPIO_PULLDOWN;
     gpio.Speed = GPIO_SPEED_FREQ_LOW;
-    gpio.Pin = _KEYPAD_COLUMN_GPIO_PIN[i];
-    HAL_GPIO_Init((GPIO_TypeDef*)_KEYPAD_COLUMN_GPIO_PORT[i], &gpio);
-    HAL_GPIO_WritePin((GPIO_TypeDef*)_KEYPAD_COLUMN_GPIO_PORT[i], _KEYPAD_COLUMN_GPIO_PIN[i], GPIO_PIN_SET);
-  }
-  for(uint8_t	i=0 ; i<KeyPad.RowSize ; i++)
-  {
-    gpio.Mode = GPIO_MODE_INPUT;
-    gpio.Pull = GPIO_PULLUP;
-    gpio.Speed = GPIO_SPEED_FREQ_LOW;
-    gpio.Pin = _KEYPAD_ROW_GPIO_PIN[i];
-    HAL_GPIO_Init((GPIO_TypeDef*)_KEYPAD_ROW_GPIO_PORT[i], &gpio);		
-  }
+    for(uint8_t	i=0 ; i<KeyPad.RowSize ; i++) {
+    	gpio.Pin = _KEYPAD_ROW_GPIO_PIN[i];
+    	HAL_GPIO_Init((GPIO_TypeDef*)_KEYPAD_ROW_GPIO_PORT[i], &gpio);
+    }
+    Keypad_Init_Column(GPIO_PIN_SET);
 }
 //#############################################################################################
 uint16_t	KeyPad_Scan(void)
 {
   uint16_t  key=0;
+  Keypad_Init_Row_Input();
+  Keypad_Init_Column(GPIO_PIN_RESET );
   for(uint8_t c=0 ; c<KeyPad.ColumnSize ; c++)
   {
-    for(uint8_t i=0 ; i<KeyPad.ColumnSize ; i++)
-      HAL_GPIO_WritePin((GPIO_TypeDef*)_KEYPAD_COLUMN_GPIO_PORT[i], _KEYPAD_COLUMN_GPIO_PIN[i], GPIO_PIN_SET);
-    HAL_GPIO_WritePin((GPIO_TypeDef*)_KEYPAD_COLUMN_GPIO_PORT[c], _KEYPAD_COLUMN_GPIO_PIN[c], GPIO_PIN_RESET);
-    _KEYPAD_DELAY(5);
-    for(uint8_t r=0 ; r<KeyPad.RowSize ; r++)
-    {
-      if(HAL_GPIO_ReadPin((GPIO_TypeDef*)_KEYPAD_ROW_GPIO_PORT[r], _KEYPAD_ROW_GPIO_PIN[r]) == GPIO_PIN_RESET)
-      {
+	  HAL_GPIO_WritePin((GPIO_TypeDef*)_KEYPAD_COLUMN_GPIO_PORT[c], _KEYPAD_COLUMN_GPIO_PIN[c], GPIO_PIN_SET);
         _KEYPAD_DELAY(_KEYPAD_DEBOUNCE_TIME_MS);
-        if(HAL_GPIO_ReadPin((GPIO_TypeDef*)_KEYPAD_ROW_GPIO_PORT[r], _KEYPAD_ROW_GPIO_PIN[r]) == GPIO_PIN_RESET)
-        {
-          key |= 1<<c;					
-          key |= 1<<(r+8);
-          while(HAL_GPIO_ReadPin((GPIO_TypeDef*)_KEYPAD_ROW_GPIO_PORT[r], _KEYPAD_ROW_GPIO_PIN[r]) == GPIO_PIN_RESET)
-            _KEYPAD_DELAY(5);
-          return key;
+        for(uint8_t r=0 ; r<KeyPad.RowSize ; r++) {
+		  if(HAL_GPIO_ReadPin((GPIO_TypeDef*)_KEYPAD_ROW_GPIO_PORT[r], _KEYPAD_ROW_GPIO_PIN[r]) == GPIO_PIN_SET) {
+			  key |= 1<<c;
+			  key |= 1<<(r+8);
+		  }
         }
-      }			
-    }		
+  	  HAL_GPIO_WritePin((GPIO_TypeDef*)_KEYPAD_COLUMN_GPIO_PORT[c], _KEYPAD_COLUMN_GPIO_PIN[c], GPIO_PIN_RESET);
   }
+  Keypad_Init_Column(GPIO_PIN_SET);
+  Keypad_Init_Row_Interrupt();
   return key;
 }
 //#############################################################################################
-uint16_t	KeyPad_WaitForKey(uint32_t  Timeout_ms)
+uint16_t	KeyPad_Key(void)
 {	
   uint16_t  keyRead;
-  while(Timeout_ms==0)
-  {
-    keyRead = KeyPad_Scan();
-		if(keyRead!=0)
-		{
-			KeyPad.LastKey = keyRead;
-			return keyRead;	
-		}
-		_KEYPAD_DELAY(_KEYPAD_DEBOUNCE_TIME_MS);	
-	}
-	uint32_t	StartTime = HAL_GetTick();
-	while(HAL_GetTick()-StartTime < Timeout_ms)
-	{
-		keyRead = KeyPad_Scan();
-		if(keyRead!=0)
-		{
-			KeyPad.LastKey = keyRead;
-			return keyRead;	
-		}
-		_KEYPAD_DELAY(_KEYPAD_DEBOUNCE_TIME_MS);	
-	}
-	KeyPad.LastKey=0;
-	return 0;
+  keyRead = KeyPad_Scan();
+  if(keyRead == KeyPad.LastKey) keyRead = 0;
+  else KeyPad.LastKey = keyRead;
+  return keyRead;
 }
 //#############################################################################################
-char	KeyPad_WaitForKeyGetChar(uint32_t	Timeout_ms)
+void KeyPad_Get(char* button)
 {
-  switch(KeyPad_WaitForKey(Timeout_ms))
-  {
-    case 0x0000:
-      return 0;
+	uint16_t key = KeyPad_Key();
+	switch(key) {
 		case 0x0101:
-			return '1';
-		case 0x0201:
-			return '2';
-		case 0x0401:
-			return '3';
-		case 0x0801:
-			return 'A';
+			strcpy(button, "F1");
+			break;
 		case 0x0102:
-			return '4';
-		case 0x0202:
-			return '5';
-		case 0x0402:
-			return '6';
-		case 0x0802:
-			return 'B';
+			strcpy(button, "F2");
+			break;
 		case 0x0104:
-			return '7';
-		case 0x0204:
-			return '8';		
-		case 0x0404:
-			return '9';
-		case 0x0804:
-			return 'C';
+			strcpy(button, "#");
+			break;
 		case 0x0108:
-			return '*';				
+			strcpy(button, "*");
+			break;
+		case 0x0201:
+			strcpy(button, "1");
+			break;
+		case 0x0202:
+			strcpy(button, "2");
+			break;
+		case 0x0204:
+			strcpy(button, "3");
+			break;
 		case 0x0208:
-			return '0';				
+			strcpy(button, "UP");
+			break;
+		case 0x0401:
+			strcpy(button, "4");
+			break;
+		case 0x0402:
+			strcpy(button, "5");
+			break;
+		case 0x0404:
+			strcpy(button, "6");
+			break;
 		case 0x0408:
-			return '#';
+			strcpy(button, "DWN");
+			break;
+		case 0x0801:
+			strcpy(button, "7");
+			break;
+		case 0x0802:
+			strcpy(button, "8");
+			break;
+		case 0x0804:
+			strcpy(button, "9");
+			break;
 		case 0x0808:
-			return 'D';
-		
+			strcpy(button, "ESC");
+			break;
+		case 0x1001:
+			strcpy(button, "LFT");
+			break;
+		case 0x1002:
+			strcpy(button, "0");
+			break;
+		case 0x1004:
+			strcpy(button, "RGT");
+			break;
+		case 0x1008:
+			strcpy(button, "ENT");
+			break;
 		default:
-			return 0;		
-	}	
+			strcpy(button, "");
+	}
+	return;
 }

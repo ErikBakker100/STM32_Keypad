@@ -33,7 +33,8 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include "retarget.h"
-#include "KeyPad.h"
+#include <KeyPad.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

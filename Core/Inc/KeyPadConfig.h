@@ -3,7 +3,6 @@
 #include <main.h>
 
 #define           _KEYPAD_DEBOUNCE_TIME_MS        20
-#define           _KEYPAD_USE_FREERTOS            0
 
 const GPIO_TypeDef* _KEYPAD_COLUMN_GPIO_PORT[] =
 {
@@ -32,11 +31,11 @@ const GPIO_TypeDef* _KEYPAD_ROW_GPIO_PORT[] =
 
 const uint16_t _KEYPAD_ROW_GPIO_PIN[] =
 {
-  ROW1_Pin,
-  ROW2_Pin,
-  ROW3_Pin,
-  ROW4_Pin,
-  ROW5_Pin,
+	ROW1_Pin,
+	ROW2_Pin,
+	ROW3_Pin,
+	ROW4_Pin,
+	ROW5_Pin,
 };
 
 #endif
